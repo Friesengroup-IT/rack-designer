@@ -1,0 +1,648 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Rack Designer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: Werkbank. Links Geräte und Modelle, Mitte 3D-Ansicht plus Case-Optionen, rechts Frontansicht mit HE-Raster, Stückliste darunter. */
+:root{
+  --bg:#eceef1; --panel:#f7f8fa; --ink:#14181f; --muted:#596271; --line:#d1d6de;
+  --accent:#b25f00; --accent-ink:#ffffff; --scene:#dde1e8; --shell:#8f99a8; --warn:#c0392b; --ok:#2b7a4b;
+  --f-display:'Barlow Condensed','Arial Narrow',sans-serif;
+  --f-body:'Inter',system-ui,sans-serif;
+  --f-data:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1217; --panel:#161b22; --ink:#e7eaef; --muted:#97a1b0; --line:#28303b;
+  --accent:#f0a830; --accent-ink:#1a1204; --scene:#0a0d11; --shell:#3b4553; --warn:#ff7a6b; --ok:#6bd08f; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0e1217; --panel:#161b22; --ink:#e7eaef; --muted:#97a1b0; --line:#28303b;
+  --accent:#f0a830; --accent-ink:#1a1204; --scene:#0a0d11; --shell:#3b4553; --warn:#ff7a6b; --ok:#6bd08f; color-scheme:dark;}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45;
+  padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-family:var(--f-display);font-weight:700;font-size:30px;letter-spacing:.02em;text-transform:uppercase;margin:0;line-height:1}
+h2{font-family:var(--f-display);font-weight:600;font-size:17px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 8px;color:var(--muted)}
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between;margin-bottom:14px}
+.top p{margin:4px 0 0;color:var(--muted);max-width:60ch}
+.case-set{display:flex;flex-wrap:wrap;gap:10px}
+label.f{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;min-width:0}
+input,select,textarea,button{font:inherit;color:inherit}
+input[type=number],input[type=text],input[type=url],select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:6px 8px;min-width:0;width:100%}
+input[type=number]{font-family:var(--f-data);width:84px}
+input[type=color]{width:44px;height:32px;padding:2px;border:1px solid var(--line);border-radius:4px;background:var(--bg)}
+input[type=file]{width:100%;font-size:12px}
+button{cursor:pointer;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:6px 10px}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+button.mini{padding:3px 8px;font-size:12px}
+button.armed{border-color:var(--warn);color:var(--warn);font-weight:600}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid{display:grid;gap:14px;grid-template-columns:minmax(0,1fr);align-items:start}
+@media(min-width:1050px){.grid{grid-template-columns:270px minmax(0,1fr) 310px}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;min-width:0}
+.stage{padding:0;overflow:hidden}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line)}
+.bar label{display:flex;gap:6px;align-items:center;margin-left:auto;color:var(--muted)}
+.wrap3d{position:relative;height:min(62vh,560px);min-height:320px;background:var(--scene)}
+.wrap3d canvas{display:block;width:100%;height:100%;touch-action:none}
+.hint{position:absolute;left:10px;bottom:8px;font-size:11px;color:var(--muted);pointer-events:none}
+.lib{display:flex;flex-direction:column;gap:4px;max-height:320px;overflow:auto;padding-right:2px}
+.lib button.add{display:flex;justify-content:space-between;gap:8px;text-align:left;align-items:baseline;min-width:0;flex:none}
+.lib .line>.add{flex:1 1 0;width:auto}
+.lib .m{font-family:var(--f-data);font-size:11px;color:var(--muted);white-space:nowrap}
+.lib .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.lib .m{flex-shrink:0}
+.lib button.add{overflow:hidden}
+.lib .line{flex-shrink:0}
+.menu{display:flex;gap:6px;padding:6px 8px;border:1px solid var(--line);border-radius:4px;background:var(--bg);margin:-1px 0 2px}
+.menu button{flex:1}
+button.dots{padding:3px 8px;font-weight:700;letter-spacing:.1em;line-height:1}
+.line{display:flex;gap:4px;align-items:stretch}
+.sub{margin:12px 0 6px}
+details{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+summary{cursor:pointer;font-family:var(--f-display);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.cf{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.cf .wide{grid-column:1/-1}
+.cf input[type=number]{width:100%}
+.cf .btnrow{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap}
+.opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 12px;padding:12px}
+.opt input[type=number]{width:100%}
+.opt .chk{flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);padding-top:16px}
+.opt .chk input{width:auto}
+.opt .two{display:flex;gap:6px;align-items:center}
+.elev{position:relative;margin-top:4px;user-select:none;touch-action:none}
+.row{position:absolute;left:0;right:0;height:22px;border-top:1px solid var(--line);font:10px var(--f-data);color:var(--muted);padding-left:4px;line-height:21px}
+.dev{position:absolute;left:34px;right:0;border:1px solid rgba(0,0,0,.45);border-radius:2px;color:#f2f4f7;font:600 13px var(--f-display);letter-spacing:.03em;
+  padding:0 8px;display:flex;align-items:center;justify-content:space-between;gap:6px;overflow:hidden;cursor:grab;white-space:nowrap}
+.dev.sel{outline:2px solid var(--accent);outline-offset:1px;z-index:2}
+.dev.bad{box-shadow:inset 0 0 0 2px var(--warn)}
+.dev.drag{opacity:.85;z-index:3;cursor:grabbing}
+.dev span{overflow:hidden;text-overflow:ellipsis}
+.ed{margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ed .wide{grid-column:1/-1}
+.ed .btns{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap}
+.ed select{font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px}
+.stat{border:1px solid var(--line);border-radius:4px;padding:6px 8px}
+.stat b{display:block;font:500 16px var(--f-data)}
+.stat span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.msg{min-height:20px;font-size:13px;margin:8px 0 0}
+.msg.warn{color:var(--warn)}
+.msg.ok{color:var(--ok)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:480px}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);font-size:13px}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:500}
+td.n,th.n{text-align:right;font-family:var(--f-data)}
+a{color:var(--accent)}
+.below{margin-top:14px}
+textarea{font-family:var(--f-data);font-size:12px;min-height:110px;resize:vertical}
+.empty{color:var(--muted);padding:6px 0;margin:0}
+.small{font-size:12px;color:var(--muted);margin:6px 0 0}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+
+<div class="top">
+  <div>
+    <h1>Rack Designer</h1>
+    <p>19-Zoll-Case planen: Geräte per HE einsetzen, im 3D-Modell drehen, eigene 3D-Modelle verwenden, Gewicht und Leistung summieren. Die Gerätewerte der Bibliothek sind Platzhalter.</p>
+  </div>
+  <div class="case-set">
+    <label class="f">Höhe (HE)<input id="c-he" type="number" min="1" max="42" step="1"></label>
+    <label class="f">Tiefe (mm)<input id="c-depth" type="number" min="150" max="1000" step="10"></label>
+    <label class="f">Wand (mm)<input id="c-wall" type="number" min="4" max="25" step="1"></label>
+    <label class="f">Leergewicht (kg)<input id="c-kg" type="number" min="0" max="200" step="0.5"></label>
+  </div>
+</div>
+
+<div class="grid">
+  <section class="panel" aria-label="Geräte">
+    <h2>Bibliothek</h2>
+    <div class="lib" id="lib"></div>
+    <h2 class="sub">Meine Geräte</h2>
+    <div class="lib" id="mine"></div>
+    <details id="dev-form">
+      <summary id="dev-form-title">Eigenes Gerät anlegen</summary>
+      <div class="cf">
+        <label class="f wide">Name<input id="n-name" type="text" value="Mein Gerät"></label>
+        <label class="f">Höhe (HE)<input id="n-he" type="number" min="1" max="20" value="1"></label>
+        <label class="f">Tiefe (mm)<input id="n-d" type="number" min="20" max="900" value="250"></label>
+        <label class="f">Gewicht (kg)<input id="n-kg" type="number" min="0" step="0.1" value="3"></label>
+        <label class="f">Leistung (W)<input id="n-w" type="number" min="0" step="1" value="30"></label>
+        <label class="f">Frontplatte<select id="n-kind">
+          <option value="fx">Regler</option><option value="amp">Endstufe</option><option value="mixer">Mixer</option>
+          <option value="patch">Anschlüsse</option><option value="power">Strom</option><option value="drawer">Schublade</option>
+          <option value="vent">Lüftung</option><option value="blank">Blende</option></select></label>
+        <label class="f">Farbe<input id="n-c" type="color" value="#2a2e35"></label>
+        <label class="f wide">3D-Modell<select id="n-model"></select></label>
+        <label class="f wide">Drehung des Modells<select id="n-rot"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label>
+        <label class="f wide">Produktlink (optional)<input id="n-url" type="url" placeholder="https://"></label>
+        <div class="btnrow">
+          <button class="primary" id="n-save" type="button">In „Meine Geräte“ speichern</button>
+          <button id="n-add" type="button">Nur einsetzen</button>
+          <button id="n-cancel" type="button" hidden>Abbrechen</button>
+        </div>
+      </div>
+    </details>
+    <details>
+      <summary>3D-Modelle</summary>
+      <p class="small">Format: GLB (empfohlen) oder GLTF mit eingebetteten Daten. Das Modell wird auf die Maße des Geräts oder Cases skaliert. Vorderseite ist die +Z-Seite, sonst mit „Drehen“ anpassen. Auf Marktplätzen und bei Herstellern nur Modelle verwenden, deren Lizenz das erlaubt.</p>
+      <label class="f" style="margin-top:8px">Datei hinzufügen<input id="m-file" type="file" accept=".glb,.gltf"></label>
+      <div class="lib" id="models" style="margin-top:8px"></div>
+      <p class="small" id="m-note"></p>
+    </details>
+  </section>
+
+  <div class="col">
+    <section class="panel stage" aria-label="3D-Ansicht">
+      <div class="bar">
+        <button type="button" data-view="iso">Schräg</button>
+        <button type="button" data-view="front">Front</button>
+        <button type="button" data-view="side">Seite</button>
+        <button type="button" data-view="top">Oben</button>
+        <label><input id="c-trans" type="checkbox"> Case durchsichtig</label>
+      </div>
+      <div class="wrap3d" id="wrap3d">
+        <canvas id="cv"></canvas>
+        <div class="hint">Ziehen: drehen · Scrollen: zoomen · Klick auf Gerät: auswählen</div>
+      </div>
+    </section>
+    <section class="panel stage" aria-label="Case-Optionen">
+      <div class="bar"><strong style="font-family:var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Case-Optionen</strong></div>
+      <div class="opt">
+        <label class="f">Rollen und Füße
+          <select id="o-feet"><option value="none">Keine</option><option value="casters">Rollen</option><option value="feet">Gummifüße</option></select></label>
+        <label class="f">Höhe (mm)<input id="o-feeth" type="number" min="10" max="300" step="5"></label>
+        <label class="f">Frontdeckel
+          <select id="o-front"><option value="none">Kein Deckel</option><option value="closed">Geschlossen</option><option value="open">Aufgeklappt</option></select></label>
+        <label class="f">Rückseite
+          <select id="o-rear"><option value="closed">Geschlossen</option><option value="open">Offen</option></select></label>
+        <label class="f chk"><input id="o-handles" type="checkbox"> Seitengriffe</label>
+        <label class="f chk"><input id="o-corners" type="checkbox"> Eckschutz</label>
+        <label class="f">Gehäusefarbe
+          <span class="two"><input id="o-color" type="color" value="#444444"><button class="mini" id="o-color-reset" type="button">Standard</button></span></label>
+        <label class="f">3D-Modell für das Case
+          <span class="two"><select id="o-model"></select><button class="mini" id="o-rot" type="button">Drehen</button></span></label>
+      </div>
+      <p class="small" style="padding:0 12px 12px">Mit einem Case-Modell ersetzt dein Modell das erzeugte Gehäuse. Es wird auf die Außenmaße gestreckt.</p>
+    </section>
+  </div>
+
+  <section class="panel" aria-label="Frontansicht">
+    <h2>Frontansicht</h2>
+    <div class="elev" id="elev"></div>
+    <div class="ed" id="ed"></div>
+    <p class="msg" id="msg" role="status"></p>
+  </section>
+</div>
+
+<section class="panel below" aria-label="Zusammenfassung">
+  <h2>Zusammenfassung</h2>
+  <div class="stats" id="stats"></div>
+  <div class="tablewrap"><table id="bom"></table></div>
+  <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+    <button type="button" id="copy-bom">Stückliste kopieren</button>
+  </div>
+  <details>
+    <summary>Speichern und laden</summary>
+    <p class="small">Der Stand wird in diesem Browser gemerkt. Für andere Geräte den Text kopieren und dort einfügen. 3D-Modelle sind nicht im Text enthalten und müssen dort neu hinzugefügt werden.</p>
+    <textarea id="json" spellcheck="false" aria-label="Rack als Text" style="margin-top:8px"></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button type="button" id="copy-json">Kopieren</button>
+      <button type="button" id="load-json">Aus Text laden</button>
+    </div>
+  </details>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+(function(){
+const U=44.45, S=0.1, RW=482.6, PX=22, KEY='rack-designer-v1', DKEY='rack-designer-devices-v1';
+const $=s=>document.querySelector(s);
+function h(tag,attrs,...kids){const e=document.createElement(tag);for(const k in attrs||{}){const v=attrs[k];
+  if(k==='class')e.className=v;else if(k==='style')e.style.cssText=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);else if(v!==false&&v!=null)e.setAttribute(k,v);}
+  kids.flat().forEach(c=>e.append(c instanceof Node?c:document.createTextNode(String(c))));return e;}
+function num(v,a,b,d){v=Number(v);return isFinite(v)?Math.min(b,Math.max(a,v)):d;}
+function uid(p){return p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+
+/* Platzhalter-Geräte: Maße und Gewichte sind Beispielwerte. */
+const LIB=[
+ {n:'Blindplatte',he:1,d:10,kind:'blank',c:'#252930',kg:0.3,w:0},
+ {n:'Blindplatte',he:2,d:10,kind:'blank',c:'#252930',kg:0.6,w:0},
+ {n:'Lüftungsblende',he:1,d:10,kind:'vent',c:'#2a2e35',kg:0.4,w:0},
+ {n:'Stromleiste',he:1,d:80,kind:'power',c:'#2d3138',kg:1.2,w:0},
+ {n:'Patchpanel 24 Port',he:1,d:60,kind:'patch',c:'#2b2f36',kg:0.8,w:0},
+ {n:'Netzwerk-Switch 24 Port',he:1,d:250,kind:'patch',c:'#30343b',kg:3,w:30},
+ {n:'Mikrofon-Preamp',he:1,d:250,kind:'fx',c:'#33363d',kg:3,w:40},
+ {n:'Kompressor 2 Kanal',he:1,d:200,kind:'fx',c:'#2f3a45',kg:2.8,w:30},
+ {n:'Equalizer 31 Band',he:2,d:200,kind:'fx',c:'#2c2f36',kg:3.5,w:25},
+ {n:'Funkempfänger',he:1,d:200,kind:'fx',c:'#2b3038',kg:2,w:15},
+ {n:'Audio-Interface',he:1,d:250,kind:'fx',c:'#363a41',kg:3.2,w:30},
+ {n:'Rackmixer 12 Kanal',he:4,d:300,kind:'mixer',c:'#2a2d34',kg:7,w:40},
+ {n:'Endstufe 2 HE',he:2,d:400,kind:'amp',c:'#2a2c31',kg:12,w:450},
+ {n:'Endstufe 3 HE',he:3,d:420,kind:'amp',c:'#2a2c31',kg:17,w:900},
+ {n:'Rack-Schublade',he:2,d:350,kind:'drawer',c:'#2d3036',kg:3.5,w:0}
+];
+const KINDS=['fx','amp','mixer','patch','power','drawer','vent','blank'];
+function defCase(){return {he:12,depth:450,wall:9,kg:6,transparent:true,feet:'none',feetH:100,front:'none',rear:'closed',handles:false,corners:false,color:'',model:'',mrot:0};}
+function cleanCase(c){const d=defCase();c=c||{};return {he:Math.round(num(c.he,1,42,d.he)),depth:num(c.depth,150,1000,d.depth),wall:num(c.wall,4,25,d.wall),kg:num(c.kg,0,200,d.kg),transparent:c.transparent===undefined?true:!!c.transparent,
+  feet:['none','casters','feet'].includes(c.feet)?c.feet:'none',feetH:num(c.feetH,10,300,d.feetH),front:['none','closed','open'].includes(c.front)?c.front:'none',rear:c.rear==='open'?'open':'closed',
+  handles:!!c.handles,corners:!!c.corners,color:/^#[0-9a-f]{6}$/i.test(c.color||'')?c.color:'',model:String(c.model||'').slice(0,40),mrot:Math.round(num(c.mrot,0,3,0))};}
+function cleanDev(i){return {n:String(i.n||'Gerät').slice(0,60),he:Math.round(num(i.he,1,20,1)),d:num(i.d,20,900,250),kind:KINDS.includes(i.kind)?i.kind:'blank',
+  c:/^#[0-9a-f]{6}$/i.test(i.c||'')?i.c:'#2a2e35',kg:num(i.kg,0,500,0),w:num(i.w,0,10000,0),url:/^https?:\/\//i.test(i.url||'')?String(i.url).slice(0,300):'',
+  mid:String(i.mid||'').slice(0,40),rot:Math.round(num(i.rot,0,3,0))};}
+
+const state={case:defCase(),items:[],sel:null,nextId:1};
+let userDevs=[];let editingId=null;
+
+/* ---------- Belegung ---------- */
+function addRaw(d){const pos=firstFree(d.he);if(pos<0)return false;
+  state.items.push(Object.assign(cleanDev(d),{id:state.nextId++,pos}));return true;}
+function overlap(a0,a1,b0,b1){return a0<=b1&&b0<=a1;}
+function fits(pos,he,ign){if(pos<1||pos+he-1>state.case.he)return false;
+  return !state.items.some(o=>o.id!==ign&&overlap(pos,pos+he-1,o.pos,o.pos+o.he-1));}
+function firstFree(he){for(let p=1;p+he-1<=state.case.he;p++)if(fits(p,he,-1))return p;return -1;}
+/* Verschieben: Geräte auf dem Weg werden übersprungen. Beim Abwärtsziehen rücken sie nach oben, beim Aufwärtsziehen nach unten. */
+function reorder(it,t){
+  const c=state.case,hh=it.he,p0=it.pos;
+  t=Math.max(1,Math.min(c.he-hh+1,t));if(t===p0)return true;
+  const others=state.items.filter(o=>o!==it),np=new Map(others.map(o=>[o,o.pos]));let dp;
+  if(t>p0){const X=others.filter(o=>o.pos>p0&&o.pos<=t+hh-1);X.forEach(o=>np.set(o,o.pos-hh));
+    const mx=X.reduce((a,o)=>Math.max(a,np.get(o)+o.he-1),0);dp=X.length?Math.max(t,mx+1):t;}
+  else{const X=others.filter(o=>o.pos+o.he-1>=t&&o.pos<p0);X.forEach(o=>np.set(o,o.pos+hh));
+    dp=X.length?Math.min(t,...X.map(o=>o.pos)):t;}
+  const all=others.map(o=>[np.get(o),o.he]).concat([[dp,hh]]);
+  for(let i=0;i<all.length;i++){const [p,he]=all[i];if(p<1||p+he-1>c.he)return false;
+    for(let j=i+1;j<all.length;j++)if(overlap(p,p+he-1,all[j][0],all[j][0]+all[j][1]-1))return false;}
+  others.forEach(o=>{o.pos=np.get(o);});it.pos=dp;return true;
+}
+function moveBy(it,d){if(it.pos+d<1||it.pos+d+it.he-1>state.case.he)return;
+  if(reorder(it,it.pos+d)){msg('');commit();}else msg('Verschieben nicht möglich, die Geräte darunter haben keinen Platz.','warn');}
+
+/* ---------- Speicher ---------- */
+function save(){try{localStorage.setItem(KEY,JSON.stringify({case:state.case,items:state.items,nextId:state.nextId}));}catch(e){}}
+function saveDevs(){try{localStorage.setItem(DKEY,JSON.stringify(userDevs));}catch(e){}}
+function loadDevs(){try{const a=JSON.parse(localStorage.getItem(DKEY)||'[]');if(Array.isArray(a))userDevs=a.map(d=>Object.assign(cleanDev(d),{id:String(d.id||uid('u'))}));}catch(e){userDevs=[];}}
+function load(){try{const t=localStorage.getItem(KEY);if(!t)return false;return apply(JSON.parse(t));}catch(e){return false;}}
+function apply(o){
+  if(!o||!o.case||!Array.isArray(o.items))return false;
+  state.case=cleanCase(o.case);state.items=[];state.nextId=1;
+  o.items.forEach(i=>{const it=Object.assign(cleanDev(i),{id:state.nextId++,pos:Math.round(num(i.pos,1,42,1))});if(fits(it.pos,it.he,-1))state.items.push(it);});
+  state.sel=null;return true;
+}
+function sample(){[LIB[3],LIB[4],LIB[6],LIB[7],LIB[12],LIB[14]].forEach(d=>addRaw(d));state.sel=null;}
+
+/* ---------- 3D-Modelle (IndexedDB) ---------- */
+const models=new Map();let dbp=null,persistOk=true;
+function dbOpen(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{try{const r=indexedDB.open('rack-designer-db',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('models',{keyPath:'id'});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);}catch(e){rej(e);}});return dbp;}
+function dbTx(mode,fn){return dbOpen().then(db=>new Promise((res,rej)=>{const tx=db.transaction('models',mode);const rq=fn(tx.objectStore('models'));tx.oncomplete=()=>res(rq&&rq.result);tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error);}));}
+const modelCache={},loading={},failed={};
+function parseModel(buf,ok,fail){try{if(!THREE.GLTFLoader)throw new Error('Loader fehlt');new THREE.GLTFLoader().parse(buf.slice(0),'',g=>ok(g.scene),e=>fail(e));}catch(e){fail(e);}}
+function requestModel(id){if(modelCache[id]||loading[id]||failed[id])return;const rec=models.get(id);if(!rec)return;loading[id]=true;
+  parseModel(rec.buf,sc=>{modelCache[id]=sc;delete loading[id];rebuild3D();},()=>{failed[id]=true;delete loading[id];msg('Das Modell „'+rec.name+'“ konnte nicht gelesen werden. GLB-Dateien ohne Draco-Kompression funktionieren am besten.','warn');});}
+function usedModel(id){return state.case.model===id||state.items.some(i=>i.mid===id)||userDevs.some(d=>d.mid===id);}
+function removeModel(id){models.delete(id);delete modelCache[id];delete failed[id];dbTx('readwrite',st=>st.delete(id)).catch(()=>{});
+  if(state.case.model===id)state.case.model='';state.items.forEach(i=>{if(i.mid===id)i.mid='';});userDevs.forEach(d=>{if(d.mid===id)d.mid='';});saveDevs();}
+$('#m-file').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  if(f.size>40*1024*1024){msg('Die Datei ist größer als 40 MB.','warn');return;}
+  let buf;try{buf=await f.arrayBuffer();}catch(err){msg('Die Datei konnte nicht gelesen werden.','warn');return;}
+  parseModel(buf,sc=>{const id=uid('m');const rec={id,name:f.name.slice(0,60),size:f.size,buf};models.set(id,rec);modelCache[id]=sc;
+    dbTx('readwrite',st=>st.put(rec)).catch(()=>{persistOk=false;renderModels();});
+    renderModels();msg('Modell „'+rec.name+'“ hinzugefügt. Du kannst es jetzt einem Gerät oder dem Case zuweisen.','ok');},
+    ()=>msg('„'+f.name+'“ konnte nicht gelesen werden. Eingebettete GLB-Dateien ohne Draco-Kompression funktionieren am besten.','warn'));});
+function modelNode(mid,rot,tw,th,td){
+  const src=modelCache[mid];if(!src)return null;
+  const wr=new THREE.Group(),inner=src.clone(true);inner.rotation.y=rot*Math.PI/2;wr.add(inner);wr.updateMatrixWorld(true);
+  const box=new THREE.Box3().setFromObject(wr);if(box.isEmpty())return null;
+  const size=box.getSize(new THREE.Vector3()),ctr=box.getCenter(new THREE.Vector3());inner.position.set(-ctr.x,-ctr.y,-ctr.z);
+  const outer=new THREE.Group();outer.add(wr);outer.scale.set(tw/Math.max(size.x,1e-6),th/Math.max(size.y,1e-6),td/Math.max(size.z,1e-6));outer.userData.noDispose=true;return outer;
+}
+
+/* ---------- Frontplatten-Texturen ---------- */
+const texCache={};
+function hash(s){let x=2166136261;for(let i=0;i<s.length;i++){x^=s.charCodeAt(i);x=Math.imul(x,16777619);}return (x>>>0)/4294967296;}
+function lighten(hex,p){const c=new THREE.Color(hex);const f=p/100;if(f>=0)c.lerp(new THREE.Color('#ffffff'),f);else c.lerp(new THREE.Color('#000000'),-f);return '#'+c.getHexString();}
+function plateTex(it){
+  const key=[it.kind,it.he,it.c,it.n].join('|');if(texCache[key])return texCache[key];
+  const W=1400,H=Math.max(40,Math.round(W*(it.he*U-1.2)/RW));
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,lighten(it.c,18));g.addColorStop(.5,it.c);g.addColorStop(1,lighten(it.c,-10));
+  x.fillStyle=g;x.fillRect(0,0,W,H);
+  const ear=47;x.fillStyle='rgba(255,255,255,.07)';x.fillRect(0,0,ear,H);x.fillRect(W-ear,0,ear,H);
+  x.fillStyle='rgba(0,0,0,.35)';x.fillRect(ear,0,2,H);x.fillRect(W-ear,0,2,H);
+  const pu=H/it.he;
+  for(let i=0;i<it.he;i++){const y=(i+.5)*pu;[24,W-24].forEach(px=>{x.fillStyle='#0b0c0e';x.beginPath();x.ellipse(px,y,10,14,0,0,7);x.fill();x.strokeStyle='rgba(255,255,255,.25)';x.lineWidth=2;x.stroke();});}
+  const full=['mixer','drawer','blank','vent'].includes(it.kind);
+  const x0=full?ear+24:ear+380,x1=W-ear-24;
+  x.fillStyle='rgba(235,238,243,.85)';x.textBaseline='middle';
+  let fs=34;x.font='600 '+fs+'px "Barlow Condensed",Arial Narrow,sans-serif';
+  const maxw=full?500:320;while(x.measureText(it.n.toUpperCase()).width>maxw&&fs>16){fs-=2;x.font='600 '+fs+'px "Barlow Condensed",Arial Narrow,sans-serif';}
+  x.textAlign='left';
+  if(full)x.fillText(it.n.toUpperCase(),ear+24,Math.min(30,H*.3));else x.fillText(it.n.toUpperCase(),ear+24,H/2);
+  const rnd=i=>hash(it.n+'#'+i);
+  function knob(cx,cy,r,i){const gr=x.createRadialGradient(cx-r*.3,cy-r*.3,r*.1,cx,cy,r);gr.addColorStop(0,'#666c78');gr.addColorStop(1,'#16181c');
+    x.fillStyle=gr;x.beginPath();x.arc(cx,cy,r,0,7);x.fill();x.strokeStyle='rgba(255,255,255,.2)';x.lineWidth=2;x.stroke();
+    const a=-2.4+rnd(i)*4.8;x.strokeStyle='#e6e8ec';x.lineWidth=Math.max(2,r*.12);x.beginPath();
+    x.moveTo(cx+Math.cos(a)*r*.25,cy+Math.sin(a)*r*.25);x.lineTo(cx+Math.cos(a)*r*.85,cy+Math.sin(a)*r*.85);x.stroke();}
+  function led(cx,cy,r,col){x.fillStyle=col;x.shadowColor=col;x.shadowBlur=r*2;x.beginPath();x.arc(cx,cy,r,0,7);x.fill();x.shadowBlur=0;}
+  if(it.kind==='fx'){
+    const rows=Math.max(1,it.he),cols=10,w=(x1-x0-260)/cols;
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)knob(x0+w*(c+.5),(r+.5)*pu,Math.min(pu*.28,w*.35),r*20+c);
+    for(let i=0;i<12;i++)led(x1-230+i*18,H/2,6,i<8?'#3ddc84':i<10?'#ffc247':'#ff5b4a');
+  }else if(it.kind==='amp'){
+    x.fillStyle='rgba(0,0,0,.55)';
+    [[x0-20,x0+300],[x1-300,x1+10]].forEach(([a,b])=>{for(let y=H*.18;y<H*.84;y+=14)x.fillRect(a,y,b-a,6);});
+    knob((x0+x1)/2-110,H/2,Math.min(H*.26,60),1);knob((x0+x1)/2+110,H/2,Math.min(H*.26,60),2);
+    led((x0+x1)/2-20,H*.3,7,'#3ddc84');led((x0+x1)/2+20,H*.3,7,'#ff5b4a');
+    x.fillStyle='#101114';x.fillRect(x1-340,H/2-20,40,40);
+  }else if(it.kind==='power'){
+    x.fillStyle='#d9dde3';x.fillRect(x0,H/2-20,56,40);x.fillStyle='#a53a2e';x.fillRect(x0+28,H/2-20,28,40);
+    x.fillStyle='#07120c';x.fillRect(x0+120,H/2-22,130,44);x.fillStyle='#4ff08a';x.font='500 34px "IBM Plex Mono",monospace';x.textAlign='center';x.fillText('230',x0+185,H/2+2);
+    for(let i=0;i<6;i++)led(x0+330+i*34,H/2,7,i<4?'#3ddc84':'#4a4f58');
+  }else if(it.kind==='patch'){
+    const cols=24,w=(x1-x0)/cols;
+    for(let r=0;r<it.he;r++)for(let c=0;c<cols;c++){const cx=x0+w*(c+.5),cy=(r+.5)*pu;x.fillStyle='#0a0b0d';x.fillRect(cx-16,cy-14,32,28);x.fillStyle='#3a3f48';x.fillRect(cx-11,cy-9,22,18);
+      x.fillStyle='rgba(235,238,243,.55)';x.font='500 14px "IBM Plex Mono",monospace';x.textAlign='center';x.fillText(String(c+1),cx,cy+pu*.36);}
+  }else if(it.kind==='mixer'){
+    const cols=12,w=(x1-x0)/cols;
+    for(let c=0;c<cols;c++){const cx=x0+w*(c+.5);
+      for(let k=0;k<3;k++)knob(cx,H*(.22+k*.15),Math.min(w*.26,H*.055),c*5+k);
+      x.fillStyle='#07080a';x.fillRect(cx-3,H*.68,6,H*.26);x.fillStyle='#d8dbe0';x.fillRect(cx-14,H*.68+rnd(c)*H*.2,28,H*.05);
+      led(cx,H*.15,5,rnd(c+50)>.5?'#3ddc84':'#ffc247');}
+  }else if(it.kind==='drawer'){
+    x.fillStyle='rgba(0,0,0,.4)';x.fillRect(W*.3,H/2-14,W*.4,28);x.fillStyle='#8c929d';x.fillRect(W*.3,H/2-18,W*.4,22);
+    x.fillStyle='#0a0b0d';x.beginPath();x.arc(W-ear-90,H/2,16,0,7);x.fill();
+  }else if(it.kind==='vent'){
+    x.fillStyle='rgba(0,0,0,.6)';for(let xx=x0+300;xx<x1-20;xx+=34){x.fillRect(xx,H*.2,14,H*.6);}
+  }
+  const t=new THREE.CanvasTexture(cv);t.anisotropy=4;texCache[key]=t;return t;
+}
+
+/* ---------- 3D ---------- */
+const wrap=$('#wrap3d'),cv=$('#cv');
+const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(35,1,1,4000);
+const controls=new THREE.OrbitControls(camera,cv);controls.enableDamping=true;controls.dampingFactor=.08;
+scene.add(new THREE.HemisphereLight(0xffffff,0x445566,.8));
+const dl=new THREE.DirectionalLight(0xffffff,.9);dl.position.set(60,90,120);scene.add(dl);
+const dl2=new THREE.DirectionalLight(0xffffff,.35);dl2.position.set(-80,20,-60);scene.add(dl2);
+const grp=new THREE.Group();scene.add(grp);
+let plates=[];
+function theme(){const cs=getComputedStyle(document.documentElement);const g=n=>cs.getPropertyValue(n).trim();
+  return {scene:g('--scene'),shell:g('--shell'),accent:g('--accent'),ink:g('--ink'),line:g('--line'),muted:g('--muted')};}
+function clearGrp(){for(let i=grp.children.length-1;i>=0;i--){const o=grp.children[i];grp.remove(o);if(o.userData&&o.userData.noDispose)continue;
+  o.traverse(n=>{if(n.geometry)n.geometry.dispose();if(n.material){(Array.isArray(n.material)?n.material:[n.material]).forEach(m=>{if(m.userData&&m.userData.rulerMap)m.map.dispose();m.dispose();});}});}}
+function rebuild3D(){
+  const th=theme();scene.background=new THREE.Color(th.scene||'#222');clearGrp();plates=[];
+  const c=state.case,H=c.he*U*S,D=c.depth*S,W=RW*S,t=c.wall*S;
+  const shellCol=c.color||th.shell;
+  const shellMat=new THREE.MeshStandardMaterial({color:shellCol,metalness:.3,roughness:.6,transparent:c.transparent,opacity:c.transparent?.2:1,depthWrite:!c.transparent,side:THREE.DoubleSide});
+  const edgeMat=new THREE.LineBasicMaterial({color:th.muted,transparent:true,opacity:.55});
+  function box(w,hh,d,px,py,pz,mat,edges){const g=new THREE.BoxGeometry(w,hh,d);const m=new THREE.Mesh(g,mat||shellMat);m.position.set(px,py,pz);
+    if(edges!==false){const l=new THREE.LineSegments(new THREE.EdgesGeometry(g),edgeMat);m.add(l);}grp.add(m);return m;}
+  // Gehäuse
+  let caseNode=null;
+  if(c.model){requestModel(c.model);caseNode=modelNode(c.model,c.mrot,W+2*t,H+2*t,D+t);}
+  if(caseNode){caseNode.position.set(0,0,-t/2);grp.add(caseNode);}
+  else{
+    if(c.rear==='closed')box(W+2*t,H+2*t,t,0,0,-(D/2+t/2));
+    box(t,H+2*t,D+t,-(W/2+t/2),0,-t/2);box(t,H+2*t,D+t,(W/2+t/2),0,-t/2);
+    box(W,t,D+t,0,(H/2+t/2),-t/2);box(W,t,D+t,0,-(H/2+t/2),-t/2);
+  }
+  const darkMat=new THREE.MeshStandardMaterial({color:0x1c1e22,metalness:.3,roughness:.7});
+  // Schienen
+  const railMat=new THREE.MeshStandardMaterial({color:0x9aa1ab,metalness:.7,roughness:.4});
+  [-1,1].forEach(s=>{box(1.6,H,.4,s*(W/2-.8),0,D/2-.5,railMat,false);box(1.6,H,.4,s*(W/2-.8),0,-D/2+3,railMat,false);});
+  // HE-Skala
+  const rc=document.createElement('canvas');rc.width=96;rc.height=c.he*48;const rx=rc.getContext('2d');
+  rx.fillStyle=th.ink;rx.font='500 24px "IBM Plex Mono",monospace';rx.textAlign='center';rx.textBaseline='middle';
+  for(let i=0;i<c.he;i++){rx.globalAlpha=.8;rx.fillText(String(i+1),48,(i+.5)*48);rx.globalAlpha=.25;rx.fillRect(10,i*48,76,1);}
+  const rm=new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(rc),transparent:true});rm.userData={rulerMap:true};
+  const ruler=new THREE.Mesh(new THREE.PlaneGeometry(3,H),rm);ruler.position.set(-(W/2+t+1.8),0,D/2+(c.front==='closed'?3:0));grp.add(ruler);
+  // Zubehör: Rollen, Füße
+  const bottom=-(H/2+t),fh=c.feetH*S;
+  if(c.feet!=='none'){
+    const cx=W/2+t-3,cz=D/2-6;
+    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{
+      const px=sx*cx,pz=sz*cz;
+      if(c.feet==='feet'){box(4.4,fh,4.4,px,bottom-fh/2,pz,darkMat,false);}
+      else{const r=Math.min(fh*.4,5);const wy=bottom-fh+r;
+        box(8,.4,8,px,bottom-.2,pz,railMat,false);
+        box(1.4,Math.max(.4,fh-r-.4),1.4,px,(bottom-.4+wy)/2,pz,railMat,false);
+        const wg=new THREE.Mesh(new THREE.CylinderGeometry(r,r,2.4,20),darkMat);wg.rotation.z=Math.PI/2;wg.position.set(px,wy,pz);grp.add(wg);
+        box(3.2,.5,.8,px,wy+r*.75,pz,railMat,false);}
+    });
+  }
+  // Griffe, Eckschutz
+  if(c.handles)[-1,1].forEach(s=>{const x=s*(W/2+t+2.2);box(1.2,1.2,16,x,0,0,darkMat,false);box(2.2,1,1,s*(W/2+t+1.1),0,-7.5,darkMat,false);box(2.2,1,1,s*(W/2+t+1.1),0,7.5,darkMat,false);});
+  if(c.corners)[-1,1].forEach(sx=>[-1,1].forEach(sy=>[-1,1].forEach(sz=>box(2.6,2.6,2.6,sx*(W/2+t),sy*(H/2+t),sz>0?D/2-.8:-(D/2+t)+1.3,darkMat,false))));
+  // Frontdeckel
+  if(c.front!=='none'){
+    const lt=3,lw=W+2*t,lh=H+2*t;
+    const lid=new THREE.Group();const lm=new THREE.Mesh(new THREE.BoxGeometry(lw,lh,lt),shellMat);lid.add(lm);
+    lm.add(new THREE.LineSegments(new THREE.EdgesGeometry(lm.geometry),edgeMat));
+    const hd=new THREE.Mesh(new THREE.BoxGeometry(10,1.2,1.2),darkMat);hd.position.set(0,0,lt/2+.6);lid.add(hd);
+    if(c.front==='closed'){lid.position.set(0,0,D/2+lt/2);}
+    else{lm.position.x=lw/2;lid.position.set(-lw/2,0,D/2+lt/2);lid.rotation.y=-110*Math.PI/180;hd.position.set(lw/2,0,lt/2+.6);}
+    grp.add(lid);
+  }
+  // Geräte
+  state.items.forEach(it=>{
+    const ph=it.he*U-1.2,yTop=H/2-(it.pos-1)*U*S,yc=yTop-(it.he*U*S)/2;
+    if(it.mid)requestModel(it.mid);
+    const mn=it.mid?modelNode(it.mid,it.rot,W,ph*S,it.d*S):null;
+    let selGeoms=[];
+    if(mn){
+      mn.position.set(0,yc,D/2-it.d*S/2);grp.add(mn);
+      const hit=new THREE.Mesh(new THREE.BoxGeometry(W,ph*S,it.d*S),new THREE.MeshBasicMaterial({visible:false}));
+      hit.position.copy(mn.position);hit.userData.id=it.id;grp.add(hit);plates.push(hit);selGeoms=[hit];
+    }else{
+      const side=new THREE.MeshStandardMaterial({color:it.c,metalness:.4,roughness:.5});
+      const front=new THREE.MeshStandardMaterial({map:plateTex(it),metalness:.35,roughness:.5});
+      const plate=new THREE.Mesh(new THREE.BoxGeometry(W,ph*S,.3),[side,side,side,side,front,side]);
+      plate.position.set(0,yc,D/2-.15);plate.userData.id=it.id;grp.add(plate);plates.push(plate);
+      const bd=Math.max(1,it.d*S-.3);
+      const bm=new THREE.MeshStandardMaterial({color:new THREE.Color(it.c).multiplyScalar(.7),metalness:.4,roughness:.7});
+      if(it.d>c.depth-30){bm.emissive=new THREE.Color('#ff3b30');bm.emissiveIntensity=.45;}
+      const body=new THREE.Mesh(new THREE.BoxGeometry(43,ph*S-.3,bd),bm);body.position.set(0,yc,D/2-.3-bd/2);grp.add(body);selGeoms=[plate,body];
+    }
+    if(state.sel===it.id){const am=new THREE.LineBasicMaterial({color:th.accent});
+      selGeoms.forEach(m=>{const l=new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),am);l.position.copy(m.position);l.scale.setScalar(1.003);grp.add(l);});}
+  });
+}
+function fit(){const r=wrap.getBoundingClientRect();if(r.width<2||r.height<2)return;renderer.setSize(r.width,r.height,false);camera.aspect=r.width/r.height;camera.updateProjectionMatrix();}
+function view(n){
+  const c=state.case,H=c.he*U*S,D=c.depth*S,W=RW*S,tf=Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
+  let dist=Math.max(H*1.25/(2*tf),W*1.25/(2*tf*camera.aspect))+D/2+4;
+  const dir={iso:[.62,.38,.8],front:[0,0,1],side:[1,.05,0],top:[0,1,.001]}[n]||[0,0,1];
+  const v=new THREE.Vector3(...dir).normalize();if(n==='side'||n==='top')dist=Math.max(dist,D*1.6,H*1.6);if(n==='iso')dist*=1.15;
+  camera.position.copy(v.multiplyScalar(dist));controls.target.set(0,0,0);controls.update();
+}
+let down=null;
+cv.addEventListener('pointerdown',e=>{down=[e.clientX,e.clientY];});
+cv.addEventListener('pointerup',e=>{if(!down)return;const mv=Math.hypot(e.clientX-down[0],e.clientY-down[1]);down=null;if(mv>5)return;
+  const r=cv.getBoundingClientRect();const p=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
+  const rc=new THREE.Raycaster();rc.setFromCamera(p,camera);const hit=rc.intersectObjects(plates,false)[0];
+  state.sel=hit?hit.object.userData.id:null;renderAll();});
+function loop(){requestAnimationFrame(loop);if(document.hidden)return;controls.update();renderer.render(scene,camera);}
+
+/* ---------- Oberfläche ---------- */
+function msg(t,cls){const m=$('#msg');m.textContent=t||'';m.className='msg'+(cls?' '+cls:'');}
+let armed=null,armTimer=0,openMenu=null;
+document.addEventListener('click',e=>{if(openMenu&&!e.target.closest('#mine')){openMenu=null;renderLib();}});
+function arm(key){armed=key;clearTimeout(armTimer);armTimer=setTimeout(()=>{armed=null;renderLib();renderModels();},4000);}
+function renderLib(){
+  const box=$('#lib');box.textContent='';
+  LIB.forEach(d=>box.append(h('button',{type:'button',class:'add',onclick:()=>addDevice(d)},h('span',{class:'nm'},d.n),h('span',{class:'m'},d.he+' HE · '+d.d+' mm'))));
+  const mine=$('#mine');mine.textContent='';
+  if(!userDevs.length)mine.append(h('p',{class:'empty'},'Noch keine eigenen Geräte gespeichert.'));
+  userDevs.forEach(d=>{
+    const key='d'+d.id;
+    mine.append(h('div',{class:'line'},
+      h('button',{type:'button',class:'add',onclick:()=>addDevice(d)},h('span',{class:'nm'},d.n),h('span',{class:'m'},d.he+' HE · '+d.d+' mm'+(d.mid&&models.has(d.mid)?' · 3D':''))),
+      h('button',{type:'button',class:'mini dots','aria-label':'Optionen für '+d.n,'aria-expanded':openMenu===d.id?'true':'false',onclick:e=>{e.stopPropagation();openMenu=openMenu===d.id?null:d.id;armed=null;renderLib();}},'⋯')));
+    if(openMenu===d.id)mine.append(h('div',{class:'menu'},
+      h('button',{type:'button',class:'mini',onclick:()=>{openMenu=null;editDev(d);renderLib();}},'Bearbeiten'),
+      h('button',{type:'button',class:'mini'+(armed===key?' armed':''),onclick:e=>{e.stopPropagation();
+        if(armed===key){userDevs=userDevs.filter(x=>x.id!==d.id);armed=null;openMenu=null;if(editingId===d.id)cancelEdit();saveDevs();renderLib();}else{arm(key);renderLib();}}},armed===key?'Wirklich löschen?':'Löschen')));
+  });
+}
+function renderModels(){
+  const box=$('#models');box.textContent='';
+  if(!models.size)box.append(h('p',{class:'empty'},'Noch keine Modelle.'));
+  models.forEach(m=>{const key='m'+m.id;
+    box.append(h('div',{class:'line'},
+      h('div',{class:'add',style:'display:flex;justify-content:space-between;gap:8px;align-items:baseline;padding:6px 8px;border:1px solid var(--line);border-radius:4px;flex:1;min-width:0'},
+        h('span',{class:'nm',style:'overflow:hidden;text-overflow:ellipsis'},m.name),h('span',{class:'m'},(m.size/1048576).toFixed(1)+' MB')),
+      h('button',{type:'button',class:'mini'+(armed===key?' armed':''),'aria-label':m.name+' löschen',onclick:()=>{
+        if(armed===key){removeModel(m.id);armed=null;renderModels();renderModelSelects();commit();}else{arm(key);renderModels();}}},armed===key?'Löschen?':'✕')));});
+  $('#m-note').textContent=persistOk?'Modelle bleiben in diesem Browser gespeichert.':'Dieser Browser erlaubt kein dauerhaftes Speichern. Die Modelle gelten nur bis zum Schließen der Seite.';
+}
+function fillSelect(sel,cur,noneLabel){sel.textContent='';sel.append(h('option',{value:''},noneLabel));models.forEach(m=>sel.append(h('option',{value:m.id},m.name)));sel.value=models.has(cur)?cur:'';}
+function renderModelSelects(){fillSelect($('#n-model'),$('#n-model').value,'Kein Modell (gezeichnete Front)');fillSelect($('#o-model'),state.case.model,'Kein Modell (erzeugtes Gehäuse)');}
+function addDevice(d){const ok=addRaw(d);if(!ok){msg('Kein freier Platz für '+d.he+' HE. Case höher stellen oder ein Gerät entfernen.','warn');return;}
+  state.sel=state.items[state.items.length-1].id;msg('');commit();}
+function formDev(){return cleanDev({n:($('#n-name').value.trim()||'Gerät'),he:$('#n-he').value,d:$('#n-d').value,kg:$('#n-kg').value,w:$('#n-w').value,kind:$('#n-kind').value,c:$('#n-c').value,
+  url:$('#n-url').value.trim(),mid:$('#n-model').value,rot:$('#n-rot').value});}
+function fillForm(d){$('#n-name').value=d.n;$('#n-he').value=d.he;$('#n-d').value=d.d;$('#n-kg').value=d.kg;$('#n-w').value=d.w;$('#n-kind').value=d.kind;$('#n-c').value=d.c;$('#n-url').value=d.url||'';
+  renderModelSelects();$('#n-model').value=models.has(d.mid)?d.mid:'';$('#n-rot').value=String(d.rot||0);}
+function editDev(d){editingId=d.id;fillForm(d);$('#dev-form').open=true;$('#dev-form-title').textContent='Gerät bearbeiten: '+d.n;$('#n-save').textContent='Änderungen speichern';$('#n-cancel').hidden=false;}
+function cancelEdit(){editingId=null;$('#dev-form-title').textContent='Eigenes Gerät anlegen';$('#n-save').textContent='In „Meine Geräte“ speichern';$('#n-cancel').hidden=true;}
+function saveUserDev(d){const o=Object.assign(d,{id:uid('u')});userDevs.push(o);saveDevs();renderLib();return o;}
+$('#n-save').addEventListener('click',()=>{const d=formDev();
+  if(editingId){const i=userDevs.findIndex(x=>x.id===editingId);if(i>=0)userDevs[i]=Object.assign(d,{id:editingId});saveDevs();cancelEdit();renderLib();msg('Gerät aktualisiert. Bereits eingesetzte Geräte bleiben unverändert.','ok');}
+  else{saveUserDev(d);msg('„'+d.n+'“ gespeichert.','ok');}});
+$('#n-add').addEventListener('click',()=>addDevice(formDev()));
+$('#n-cancel').addEventListener('click',cancelEdit);
+
+function renderElev(){
+  const box=$('#elev');box.textContent='';box.style.height=state.case.he*PX+'px';
+  for(let i=0;i<state.case.he;i++)box.append(h('div',{class:'row',style:'top:'+i*PX+'px'},String(i+1)));
+  state.items.forEach(it=>{
+    const bad=it.d>state.case.depth-30;
+    const el=h('div',{class:'dev'+(state.sel===it.id?' sel':'')+(bad?' bad':''),style:'top:'+((it.pos-1)*PX+1)+'px;height:'+(it.he*PX-2)+'px;background:'+it.c,role:'button',tabindex:'0','aria-label':it.n+', '+it.he+' HE ab Platz '+it.pos},
+      h('span',{},it.n+(it.mid&&models.has(it.mid)?' · 3D':'')),h('span',{style:'font-family:var(--f-data);font-size:10px;font-weight:400'},it.he+' HE'));
+    el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();state.sel=it.id;renderAll();}
+      if(e.key==='ArrowUp'){e.preventDefault();state.sel=it.id;moveBy(it,-1);}if(e.key==='ArrowDown'){e.preventDefault();state.sel=it.id;moveBy(it,1);}});
+    el.addEventListener('pointerdown',e=>{
+      el.setPointerCapture(e.pointerId);const y0=e.clientY,p0=it.pos;let tgt=p0,moved=false;
+      const mv=ev=>{const dy=ev.clientY-y0;if(Math.abs(dy)>4)moved=true;if(!moved)return;el.classList.add('drag');
+        tgt=Math.max(1,Math.min(state.case.he-it.he+1,Math.round(p0+dy/PX)));el.style.top=((tgt-1)*PX+1)+'px';};
+      const up=()=>{el.removeEventListener('pointermove',mv);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);
+        state.sel=it.id;
+        if(moved&&tgt!==p0){if(reorder(it,tgt)){msg('');commit();}else{msg('Dort ist kein Platz, auch nicht nach dem Verschieben der anderen Geräte.','warn');renderAll();}}
+        else renderAll();};
+      el.addEventListener('pointermove',mv);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);});
+    box.append(el);});
+}
+function renderEditor(){
+  const ed=$('#ed');ed.textContent='';const it=state.items.find(o=>o.id===state.sel);
+  if(!it){ed.append(h('p',{class:'empty wide'},'Gerät anklicken, um Tiefe, Gewicht, Leistung und 3D-Modell zu ändern. Zum Verschieben ziehen: andere Geräte auf dem Weg werden übersprungen.'));return;}
+  const f=(label,key,min,step)=>h('label',{class:'f'},label,h('input',{type:'number',min,step,value:it[key],onchange:e=>{it[key]=num(e.target.value,min,10000,it[key]);commit();}}));
+  const ms=h('select',{id:'e-model','aria-label':'3D-Modell',onchange:e=>{it.mid=e.target.value;commit();}});
+  fillSelect(ms,it.mid,'Kein Modell (gezeichnete Front)');
+  ed.append(h('div',{class:'wide',style:'font-weight:600'},it.n+' · '+it.he+' HE · Platz '+it.pos+(it.he>1?'–'+(it.pos+it.he-1):'')),
+    f('Tiefe mm','d',20,10),f('kg','kg',0,.1),f('Watt','w',0,5),
+    h('label',{class:'f wide'},'3D-Modell',h('span',{style:'display:flex;gap:6px'},ms,h('button',{type:'button',class:'mini',onclick:()=>{it.rot=(it.rot+1)%4;commit();}},'Drehen'))),
+    h('div',{class:'btns'},
+      h('button',{type:'button',onclick:()=>moveBy(it,-1)},'↑ Hoch'),h('button',{type:'button',onclick:()=>moveBy(it,1)},'↓ Runter'),
+      h('button',{type:'button',onclick:()=>{const p=firstFree(it.he);if(p<0){msg('Kein Platz zum Duplizieren.','warn');return;}
+        const n=Object.assign({},it,{id:state.nextId++,pos:p});state.items.push(n);state.sel=n.id;commit();}},'Duplizieren'),
+      h('button',{type:'button',onclick:()=>{const {id,pos,...d}=it;saveUserDev(cleanDev(d));msg('„'+it.n+'“ unter „Meine Geräte“ gespeichert.','ok');}},'Als eigenes Gerät speichern'),
+      h('button',{type:'button',onclick:()=>{state.items=state.items.filter(o=>o.id!==it.id);state.sel=null;commit();}},'Entfernen')));
+}
+function accessories(){const c=state.case;let kg=0;
+  if(c.feet==='casters')kg+=4*.8;if(c.feet==='feet')kg+=4*.1;if(c.front!=='none')kg+=1.5;if(c.handles)kg+=.6;if(c.corners)kg+=.4;return kg;}
+function renderStats(){
+  const c=state.case,used=state.items.reduce((a,i)=>a+i.he,0),acc=accessories(),kg=state.items.reduce((a,i)=>a+i.kg,0)+c.kg+acc,w=state.items.reduce((a,i)=>a+i.w,0);
+  const st=$('#stats');st.textContent='';
+  const add=(l,v)=>st.append(h('div',{class:'stat'},h('b',{},v),h('span',{},l)));
+  add('Belegt',used+' / '+c.he+' HE');add('Frei',(c.he-used)+' HE');add('Gewicht gesamt',kg.toFixed(1)+' kg');add('Leistung',w+' W');
+  if(acc>0)add('Zubehör (geschätzt)',acc.toFixed(1)+' kg');
+  add('Außenmaß ca.',Math.round(RW+2*c.wall)+' × '+Math.round(c.he*U+2*c.wall+(c.feet!=='none'?c.feetH:0))+' × '+Math.round(c.depth+c.wall+(c.front==='closed'?30:0))+' mm');
+  const bad=state.items.filter(i=>i.d>c.depth-30);
+  const m=$('#msg');
+  if(bad.length)msg(bad.map(i=>i.n).join(', ')+(bad.length>1?' sind':' ist')+' zu tief für das Case (30 mm Reserve für Stecker eingerechnet).','warn');
+  else if(!m.textContent||m.className.includes('warn'))msg(state.items.length?'Alle Geräte passen in die Tiefe.':'',state.items.length?'ok':'');
+}
+function groups(){const m={};state.items.forEach(i=>{const k=[i.n,i.he,i.d,i.url].join('|');(m[k]=m[k]||{n:i.n,he:i.he,d:i.d,kg:i.kg,w:i.w,url:i.url,q:0}).q++;});return Object.values(m);}
+function renderBOM(){
+  const t=$('#bom');t.textContent='';const g=groups();
+  t.append(h('thead',{},h('tr',{},h('th',{},'Gerät'),h('th',{class:'n'},'Anz.'),h('th',{class:'n'},'HE'),h('th',{class:'n'},'Tiefe mm'),h('th',{class:'n'},'kg'),h('th',{class:'n'},'Watt'))));
+  const b=h('tbody',{});
+  if(!g.length)b.append(h('tr',{},h('td',{colspan:6,class:'empty'},'Noch keine Geräte im Rack.')));
+  g.forEach(r=>b.append(h('tr',{},h('td',{},/^https?:\/\//i.test(r.url)?h('a',{href:r.url,target:'_blank',rel:'noopener noreferrer'},r.n):r.n),
+    h('td',{class:'n'},r.q),h('td',{class:'n'},r.he),h('td',{class:'n'},r.d),h('td',{class:'n'},(r.kg*r.q).toFixed(1)),h('td',{class:'n'},r.w*r.q))));
+  t.append(b);
+}
+function renderJSON(){$('#json').value=JSON.stringify({case:state.case,items:state.items.map(({id,...r})=>r)},null,1);}
+function syncCase(){const c=state.case;$('#c-he').value=c.he;$('#c-depth').value=c.depth;$('#c-wall').value=c.wall;$('#c-kg').value=c.kg;$('#c-trans').checked=c.transparent;
+  $('#o-feet').value=c.feet;$('#o-feeth').value=c.feetH;$('#o-feeth').disabled=c.feet==='none';$('#o-front').value=c.front;$('#o-rear').value=c.rear;
+  $('#o-handles').checked=c.handles;$('#o-corners').checked=c.corners;$('#o-color').value=c.color||'#444444';renderModelSelects();}
+function renderAll(){renderElev();renderEditor();renderStats();renderBOM();renderJSON();rebuild3D();}
+function commit(){save();renderAll();}
+
+['c-he','c-depth','c-wall','c-kg'].forEach(id=>$('#'+id).addEventListener('change',()=>{
+  const ext=state.items.reduce((a,i)=>Math.max(a,i.pos+i.he-1),1);
+  state.case.he=Math.max(ext,Math.round(num($('#c-he').value,1,42,state.case.he)));
+  state.case.depth=num($('#c-depth').value,150,1000,state.case.depth);state.case.wall=num($('#c-wall').value,4,25,state.case.wall);state.case.kg=num($('#c-kg').value,0,200,state.case.kg);
+  syncCase();msg('');commit();view('iso');}));
+$('#c-trans').addEventListener('change',e=>{state.case.transparent=e.target.checked;commit();});
+$('#o-feet').addEventListener('change',e=>{state.case.feet=e.target.value;state.case.feetH=e.target.value==='feet'?30:e.target.value==='casters'?100:state.case.feetH;syncCase();commit();});
+$('#o-feeth').addEventListener('change',e=>{state.case.feetH=num(e.target.value,10,300,state.case.feetH);commit();});
+$('#o-front').addEventListener('change',e=>{state.case.front=e.target.value;commit();});
+$('#o-rear').addEventListener('change',e=>{state.case.rear=e.target.value;commit();});
+$('#o-handles').addEventListener('change',e=>{state.case.handles=e.target.checked;commit();});
+$('#o-corners').addEventListener('change',e=>{state.case.corners=e.target.checked;commit();});
+$('#o-color').addEventListener('input',e=>{state.case.color=e.target.value;commit();});
+$('#o-color-reset').addEventListener('click',()=>{state.case.color='';syncCase();commit();});
+$('#o-model').addEventListener('change',e=>{state.case.model=e.target.value;commit();});
+$('#o-rot').addEventListener('click',()=>{state.case.mrot=(state.case.mrot+1)%4;commit();});
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>view(b.dataset.view)));
+function copyText(text,ta){const fallback=()=>{if(ta){ta.focus();ta.select();}msg('Text markiert. Mit Strg+C oder Cmd+C kopieren.');};
+  try{navigator.clipboard.writeText(text).then(()=>msg('Kopiert.','ok'),fallback);}catch(e){fallback();}}
+$('#copy-json').addEventListener('click',()=>copyText($('#json').value,$('#json')));
+$('#copy-bom').addEventListener('click',()=>{const g=groups();const lines=['Anz.\tGerät\tHE\tTiefe mm\tkg\tWatt\tLink'];
+  g.forEach(r=>lines.push([r.q,r.n,r.he,r.d,(r.kg*r.q).toFixed(1),r.w*r.q,r.url].join('\t')));copyText(lines.join('\n'),null);});
+$('#load-json').addEventListener('click',()=>{try{const o=JSON.parse($('#json').value);if(!apply(o))throw 0;syncCase();msg('Geladen.','ok');commit();view('iso');}catch(e){msg('Der Text ist kein gültiger Rack-Stand.','warn');}});
+
+/* Start */
+loadDevs();
+if(!load()){state.case=defCase();state.items=[];state.nextId=1;sample();}
+syncCase();renderLib();renderModels();
+fit();new ResizeObserver(fit).observe(wrap);
+renderAll();view('iso');loop();
+dbTx('readonly',st=>st.getAll()).then(list=>{(list||[]).forEach(r=>models.set(r.id,r));renderModels();syncCase();renderLib();renderAll();}).catch(()=>{persistOk=false;renderModels();});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{Object.keys(texCache).forEach(k=>{texCache[k].dispose();delete texCache[k];});rebuild3D();});
+new MutationObserver(rebuild3D).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+if(window.matchMedia)window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>setTimeout(rebuild3D,50));
+})();
+</script>
+
+</body></html>
